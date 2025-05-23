@@ -6,8 +6,25 @@ in log messages with redacted placeholders for privacy protection.
 """
 
 import logging
+import os
 import re
-from typing import List
+from typing import List, Union, Any
+
+# Tentative d'importation conditionnelle pour éviter les erreurs Pylance
+MYSQL_CONNECTOR_AVAILABLE = False
+PYMYSQL_AVAILABLE = False
+
+try:
+    import mysql.connector  # type: ignore
+    MYSQL_CONNECTOR_AVAILABLE = True
+except ImportError:
+    pass
+
+try:
+    import pymysql  # type: ignore
+    PYMYSQL_AVAILABLE = True
+except ImportError:
+    pass
 
 
 # PII_FIELDS constant containing the 5 most critical PII fields from
@@ -108,6 +125,63 @@ def get_logger() -> logging.Logger:
     return logger
 
 
+def get_db() -> Any:
+    """
+    Create and return a secure database connection using environment variables.
+
+    This function reads database credentials from environment variables
+    to establish a secure connection to the MySQL database. This approach
+    prevents hardcoding sensitive information in the source code.
+
+    Environment Variables:
+        PERSONAL_DATA_DB_USERNAME: Database username (default: "root")
+        PERSONAL_DATA_DB_PASSWORD: Database password (default: "")
+        PERSONAL_DATA_DB_HOST: Database host (default: "localhost")
+        PERSONAL_DATA_DB_NAME: Database name (required)
+
+    Returns:
+        Database connection object
+
+    Raises:
+        ImportError: If no MySQL connector is available
+        Exception: If connection to database fails
+    """
+    if not MYSQL_CONNECTOR_AVAILABLE and not PYMYSQL_AVAILABLE:
+        raise ImportError(
+            "Aucun connecteur MySQL disponible. "
+            "Installez mysql-connector-python avec un environnement virtuel:\n"
+            "python3 -m venv venv\n"
+            "source venv/bin/activate\n"
+            "pip install mysql-connector-python"
+        )
+
+    username = os.getenv('PERSONAL_DATA_DB_USERNAME', 'root')
+    password = os.getenv('PERSONAL_DATA_DB_PASSWORD', '')
+    host = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
+    database = os.getenv('PERSONAL_DATA_DB_NAME')
+
+    if MYSQL_CONNECTOR_AVAILABLE:
+        import mysql.connector  # type: ignore
+        connection_obj = mysql.connector.connect(
+            user=username,
+            password=password,
+            host=host,
+            database=database
+        )
+    elif PYMYSQL_AVAILABLE:
+        import pymysql  # type: ignore
+        connection_obj = pymysql.connect(
+            user=username,
+            password=password,
+            host=host,
+            database=database
+        )
+    else:
+        raise ImportError("Aucun connecteur MySQL disponible")
+
+    return connection_obj
+
+
 # Test function (pour vérifier le fonctionnement)
 if __name__ == "__main__":
     # Test de filter_datum
@@ -148,3 +222,18 @@ if __name__ == "__main__":
     test_message = "name=John Doe;email=john@example.com;" \
                    "phone=555-0123;ssn=123-45-6789;password=secret123;"
     logger.info(test_message)
+
+    # Test de get_db (nécessite les variables d'environnement)
+    print("\n=== Test get_db ===")
+    try:
+        db = get_db()
+        print(f"Type de connexion: {type(db)}")
+        print("Connexion à la base de données réussie!")
+        db.close()
+    except Exception as e:
+        print(f"Erreur de connexion: {e}")
+        print("Assurez-vous que les variables d'environnement sont définies:")
+        print("- PERSONAL_DATA_DB_USERNAME")
+        print("- PERSONAL_DATA_DB_PASSWORD")
+        print("- PERSONAL_DATA_DB_HOST")
+        print("- PERSONAL_DATA_DB_NAME")
