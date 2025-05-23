@@ -86,26 +86,16 @@ class RedactingFormatter(logging.Formatter):
 
 
 def get_logger() -> logging.Logger:
-    """
-    Create and configure a logger for user data with PII redaction.
-
-    Creates a logger named 'user_data' that filters sensitive information
-    from log messages using RedactingFormatter. The logger is configured
-    to log up to INFO level without propagating to parent loggers.
-
-    Returns:
-        logging.Logger: Configured logger with PII redaction capabilities
+    """ Function that takes no arguments and returns a logging.Logger.
     """
     logger = logging.getLogger("user_data")
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
-    handler = logging.StreamHandler()
-    formatter = RedactingFormatter(fields=list(PII_FIELDS))
-    handler.setFormatter(formatter)
-
-    if not logger.handlers:
-        logger.addHandler(handler)
+    stream_handler = logging.StreamHandler()
+    formatter = RedactingFormatter(PII_FIELDS)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
 
     return logger
 
