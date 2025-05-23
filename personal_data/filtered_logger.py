@@ -6,25 +6,10 @@ in log messages with redacted placeholders for privacy protection.
 """
 
 import logging
+import mysql.connector
 import os
 import re
-from typing import List, Union, Any
-
-# Tentative d'importation conditionnelle pour éviter les erreurs Pylance
-MYSQL_CONNECTOR_AVAILABLE = False
-PYMYSQL_AVAILABLE = False
-
-try:
-    import mysql.connector  # type: ignore
-    MYSQL_CONNECTOR_AVAILABLE = True
-except ImportError:
-    pass
-
-try:
-    import pymysql  # type: ignore
-    PYMYSQL_AVAILABLE = True
-except ImportError:
-    pass
+from typing import List
 
 
 # PII_FIELDS constant containing the 5 most critical PII fields from
@@ -125,7 +110,7 @@ def get_logger() -> logging.Logger:
     return logger
 
 
-def get_db() -> Any:
+def get_db() -> mysql.connector.connection.MySQLConnection:
     """
     Create and return a secure database connection using environment variables.
 
@@ -140,46 +125,24 @@ def get_db() -> Any:
         PERSONAL_DATA_DB_NAME: Database name (required)
 
     Returns:
-        Database connection object
+        mysql.connector.connection.MySQLConnection: Database connection object
 
     Raises:
-        ImportError: If no MySQL connector is available
-        Exception: If connection to database fails
+        mysql.connector.Error: If connection to database fails
     """
-    if not MYSQL_CONNECTOR_AVAILABLE and not PYMYSQL_AVAILABLE:
-        raise ImportError(
-            "Aucun connecteur MySQL disponible. "
-            "Installez mysql-connector-python avec un environnement virtuel:\n"
-            "python3 -m venv venv\n"
-            "source venv/bin/activate\n"
-            "pip install mysql-connector-python"
-        )
-
     username = os.getenv('PERSONAL_DATA_DB_USERNAME', 'root')
     password = os.getenv('PERSONAL_DATA_DB_PASSWORD', '')
     host = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
     database = os.getenv('PERSONAL_DATA_DB_NAME')
 
-    if MYSQL_CONNECTOR_AVAILABLE:
-        import mysql.connector  # type: ignore
-        connection_obj = mysql.connector.connect(
-            user=username,
-            password=password,
-            host=host,
-            database=database
-        )
-    elif PYMYSQL_AVAILABLE:
-        import pymysql  # type: ignore
-        connection_obj = pymysql.connect(
-            user=username,
-            password=password,
-            host=host,
-            database=database
-        )
-    else:
-        raise ImportError("Aucun connecteur MySQL disponible")
+    connection = mysql.connector.connect(
+        user=username,
+        password=password,
+        host=host,
+        database=database
+    )
 
-    return connection_obj
+    return connection
 
 
 # Test function (pour vérifier le fonctionnement)
