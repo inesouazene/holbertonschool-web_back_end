@@ -6,15 +6,30 @@ in log messages with redacted placeholders for privacy protection.
 """
 
 import logging
-import mysql.connector
 import os
 import re
-from typing import List
+from typing import List, Union, Any
+
+# Tentative d'importation conditionnelle pour éviter les erreurs Pylance
+MYSQL_CONNECTOR_AVAILABLE = False
+PYMYSQL_AVAILABLE = False
+
+try:
+    import mysql.connector  # type: ignore
+    MYSQL_CONNECTOR_AVAILABLE = True
+except ImportError:
+    pass
+
+try:
+    import pymysql  # type: ignore
+    PYMYSQL_AVAILABLE = True
+except ImportError:
+    pass
 
 
 # PII_FIELDS constant containing the 5 most critical PII fields from
-# user_data.csv
-PII_FIELDS = ("password", "ssn", "email", "phone", "ip")
+# user_data.csv that should be filtered in logs
+PII_FIELDS = ("name", "email", "phone", "ssn", "password")
 
 
 def filter_datum(fields: List[str], redaction: str, message: str,
@@ -86,21 +101,31 @@ class RedactingFormatter(logging.Formatter):
 
 
 def get_logger() -> logging.Logger:
-    """ Function that takes no arguments and returns a logging.Logger.
+    """
+    Create and configure a logger for user data with PII redaction.
+
+    Creates a logger named 'user_data' that filters sensitive information
+    from log messages using RedactingFormatter. The logger is configured
+    to log up to INFO level without propagating to parent loggers.
+
+    Returns:
+        logging.Logger: Configured logger with PII redaction capabilities
     """
     logger = logging.getLogger("user_data")
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
-    stream_handler = logging.StreamHandler()
-    formatter = RedactingFormatter(PII_FIELDS)
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
+    handler = logging.StreamHandler()
+    formatter = RedactingFormatter(fields=list(PII_FIELDS))
+    handler.setFormatter(formatter)
+
+    if not logger.handlers:
+        logger.addHandler(handler)
 
     return logger
 
 
-def get_db() -> mysql.connector.connection.MySQLConnection:
+def get_db() -> Any:
     """
     Create and return a secure database connection using environment variables.
 
@@ -115,24 +140,98 @@ def get_db() -> mysql.connector.connection.MySQLConnection:
         PERSONAL_DATA_DB_NAME: Database name (required)
 
     Returns:
-        mysql.connector.connection.MySQLConnection: Database connection object
+        Database connection object
 
     Raises:
-        mysql.connector.Error: If connection to database fails
+        ImportError: If no MySQL connector is available
+        Exception: If connection to database fails
     """
+    if not MYSQL_CONNECTOR_AVAILABLE and not PYMYSQL_AVAILABLE:
+        raise ImportError(
+            "Aucun connecteur MySQL disponible. "
+            "Installez mysql-connector-python avec un environnement virtuel:\n"
+            "python3 -m venv venv\n"
+            "source venv/bin/activate\n"
+            "pip install mysql-connector-python"
+        )
+
     username = os.getenv('PERSONAL_DATA_DB_USERNAME', 'root')
     password = os.getenv('PERSONAL_DATA_DB_PASSWORD', '')
     host = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
     database = os.getenv('PERSONAL_DATA_DB_NAME')
 
-    connection = mysql.connector.connect(
-        user=username,
-        password=password,
-        host=host,
-        database=database
-    )
+    if MYSQL_CONNECTOR_AVAILABLE:
+        import mysql.connector  # type: ignore
+        connection_obj = mysql.connector.connect(
+            user=username,
+            password=password,
+            host=host,
+            database=database
+        )
+    elif PYMYSQL_AVAILABLE:
+        import pymysql  # type: ignore
+        connection_obj = pymysql.connect(
+            user=username,
+            password=password,
+            host=host,
+            database=database
+        )
+    else:
+        raise ImportError("Aucun connecteur MySQL disponible")
 
     return connection
+
+
+def main() -> None:
+    """
+    Main function that retrieves all users from the database and logs them.
+
+    This function connects to the database using get_db(), retrieves all rows
+    from the users table, and logs each row with sensitive fields filtered
+    using the configured logger.
+
+    The function formats each row as a semicolon-separated string and logs it
+    at INFO level. Sensitive fields (name, email, phone, ssn, password) are
+    automatically redacted by the RedactingFormatter.
+
+    Returns:
+        None
+    """
+    logger = get_logger()
+
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("SELECT * FROM users;")
+
+        # Get column names from cursor description
+        columns = [desc[0] for desc in cursor.description]
+
+        # Process each row
+        for row in cursor:
+            # Create a formatted string from row data
+            row_data = []
+            for i, value in enumerate(row):
+                if value is not None:
+                    row_data.append(f"{columns[i]}={value}")
+                else:
+                    row_data.append(f"{columns[i]}=")
+
+            # Join with semicolons and add trailing semicolon
+            message = "; ".join(row_data) + ";"
+
+            # Log the message (will be automatically filtered)
+            logger.info(message)
+
+    except Exception as e:
+        logger.error(f"Error retrieving data: {e}")
+    finally:
+        try:
+            cursor.close()
+            db.close()
+        except Exception:
+            pass_obj
 
 
 # Test function (pour vérifier le fonctionnement)
