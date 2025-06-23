@@ -22,9 +22,21 @@ class Auth:
             excluded_paths: List of paths that don't require authentication
 
         Returns:
-            False - path and excluded_paths will be used later
+            True if authentication is required, False otherwise
         """
-        return False
+        # Return True if path is None
+        if path is None:
+            return True
+
+        # Return True if excluded_paths is None or empty
+        if excluded_paths is None or len(excluded_paths) == 0:
+            return True
+
+        # Normalize path to always end with a slash for comparison
+        normalized_path = path if path.endswith('/') else path + '/'
+
+        # Check if the normalized path is in excluded_paths
+        return normalized_path not in excluded_paths
 
     def authorization_header(self, request=None) -> str:
         """
