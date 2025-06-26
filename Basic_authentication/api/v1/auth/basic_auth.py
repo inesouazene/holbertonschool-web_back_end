@@ -120,7 +120,7 @@ class BasicAuth(Auth):
                 return user
 
             return None
-        
-        # Handle KeyError and other exceptions 
+
+        # Handle KeyError and other exceptions
         except (KeyError, Exception):
-            return None 
+            return None
