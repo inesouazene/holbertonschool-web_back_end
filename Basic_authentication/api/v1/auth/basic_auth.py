@@ -111,10 +111,10 @@ class BasicAuth(Auth):
         from models.user import User
 
         # Query the User model for a user with the given email and password
-        user = User.search({'email': user_email})
-        if not user:
+        users = User.search({'email': user_email})
+        if not users:
             return None
-        user = user[0]
+        user = users[0]
         if user.is_valid_password(user_pwd):
             return user
 
