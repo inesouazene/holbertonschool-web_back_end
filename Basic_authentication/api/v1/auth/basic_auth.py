@@ -3,6 +3,9 @@
 BasicAuth module for the API
 """
 from api.v1.auth.auth import Auth
+from typing import TypeVar
+
+User = TypeVar('User')
 
 
 class BasicAuth(Auth):
@@ -85,3 +88,34 @@ class BasicAuth(Auth):
             return None, None
 
         return decoded_base64_authorization_header.split(":", 1)
+
+    def user_object_from_credentials(self,
+                                     user_email: str, user_pwd: str
+                                     ) -> TypeVar('User'):
+        """
+        Returns the user instance based on the email and password
+
+        Args:
+            user_email: The user's email
+            user_pwd: The user's password
+        Returns:
+            The user instance if found, None otherwise
+        """
+        if user_email is None or not isinstance(user_email, str):
+            return None
+
+        if user_pwd is None or not isinstance(user_pwd, str):
+            return None
+
+        # Import User model here to avoid circular import issues
+        from models.user import User
+
+        # Query the User model for a user with the given email and password
+        user = User.search({'email': user_email})
+        if not user:
+            return None
+        user = user[0]
+        if user.is_valid_password(user_pwd):
+            return user
+
+        return None
