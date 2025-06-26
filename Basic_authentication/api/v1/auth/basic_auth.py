@@ -107,15 +107,20 @@ class BasicAuth(Auth):
         if user_pwd is None or not isinstance(user_pwd, str):
             return None
 
-        # Import User model here to avoid circular import issues
-        from models.user import User
+        try:
+            # Import User model here to avoid circular import issues
+            from models.user import User
 
-        # Query the User model for a user with the given email and password
-        users = User.search({'email': user_email})
-        if not users:
+            # Query the User model for a user with the given email and password
+            users = User.search({'email': user_email})
+            if not users:
+                return None
+            user = users[0]
+            if user.is_valid_password(user_pwd):
+                return user
+
             return None
-        user = users[0]
-        if user.is_valid_password(user_pwd):
-            return user
-
-        return None
+        
+        # Handle KeyError and other exceptions 
+        except (KeyError, Exception):
+            return None 
