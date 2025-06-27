@@ -23,11 +23,15 @@ if auth_type == 'auth':
 elif auth_type == 'basic_auth':
     from api.v1.auth.basic_auth import BasicAuth
     auth = BasicAuth()
+elif auth_type == "session_auth":
+    from api.v1.auth.session_auth import SessionAuth
+    auth = SessionAuth()
 
 
 @app.before_request
 def before_request() -> None:
-    """ Before request handler that validates authentication
+    """
+    Before request handler that validates authentication
     """
     # Check if auth is initialized
     if auth is None:
@@ -35,7 +39,7 @@ def before_request() -> None:
 
     # Define paths that do not require authentication
     excluded_paths = ['/api/v1/status/', '/api/v1/unauthorized/',
-                      '/api/v1/forbidden/']
+                      '/api/v1/forbidden/', '/api/v1/auth_session/login/']
 
     # Check if authentication is required for current path
     if not auth.require_auth(request.path, excluded_paths):
