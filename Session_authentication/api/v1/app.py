@@ -43,17 +43,14 @@ def before_request() -> None:
 
     # Check if the Authorization header is present
     if auth.authorization_header(request) is None:
-        abort(401, description="Unauthorized access")  # If not, abort with 401
+        abort(401, description="Unauthorized access")
 
-    # Check if the current user is authenticated
-    if auth.current_user(request) is None:
-        abort(403, description="Forbidden access")  # If not, abort with 403
-
-    # Assign the result of current_user to the request
+    # Assign the result of current_user to the request FIRST
     request.current_user = auth.current_user(request)
 
+    # Then check if the current user is authenticated
     if request.current_user is None:
-        abort(403, description="Forbidden access")  # If not, abort with 403
+        abort(403, description="Forbidden access")
 
 
 @app.errorhandler(401)
