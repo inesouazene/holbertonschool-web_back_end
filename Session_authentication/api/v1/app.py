@@ -50,12 +50,12 @@ def before_request() -> None:
             request) is None and auth.session_cookie(request) is None:
         abort(401, description="Unauthorized access")
 
+    # Assign the result of current_user to the request FIRST
+    request.current_user = auth.current_user(request)
+
     # Then check if the current user is authenticated
     if auth.current_user is None:
         abort(403, description="Forbidden access")
-
-    # Assign the result of current_user to the request FIRST
-    request.current_user = auth.current_user(request)
 
 
 @app.errorhandler(401)
