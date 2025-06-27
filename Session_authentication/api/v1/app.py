@@ -45,17 +45,17 @@ def before_request() -> None:
     if not auth.require_auth(request.path, excluded_paths):
         return   # If not required, skip authentication checks
 
-    # Check if the Authorization header or session cookie is present
+    # Check if BOTH Authorization header AND session cookie are None
     if auth.authorization_header(
             request) is None and auth.session_cookie(request) is None:
-        abort(401, description="Unauthorized access")
+        abort(401)
 
-    # Assign the result of current_user to the request FIRST
+    # Get the current user using the authentication method
     request.current_user = auth.current_user(request)
 
-    # Then check if the current user is authenticated
-    if auth.current_user is None:
-        abort(403, description="Forbidden access")
+    # Check if the current user is None (invalid credentials/session)
+    if request.current_user is None:
+        abort(403)
 
 
 @app.errorhandler(401)
